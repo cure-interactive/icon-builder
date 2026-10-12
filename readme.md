@@ -29,6 +29,8 @@ On Linux or macOS, activate the virtual environment with `source .venv/bin/activ
 python icon-builder.py
 ```
 
+Hover over the app's fields, layer controls, and buttons for detailed explanations of their behavior.
+
 ## Input Convention
 
 The app can discover PNG and SVG layers whose filenames include a size token such as `256x256`, `64x64`, or `16x16`.

@@ -30,7 +30,7 @@ Config behavior
   - output settings change
 
 Dependencies
-- pip install pillow icoutil customtkinter resvg-py
+- pip install pillow icoutil customtkinter CTkToolTip resvg-py
 
 Notes
 - Auto-discovery uses filenames containing a "{W}x{H}" token, e.g., "icon_32x32.svg".
@@ -60,9 +60,20 @@ try:
 except Exception as e:
   print("ERROR: customtkinter is required for this UI.\n  pip install customtkinter\n", file=sys.stderr)
   raise
+from CTkToolTip import CTkToolTip
 
 import tkinter as tk
 from tkinter import filedialog, messagebox
+
+
+def tooltip(*widgets, text: str) -> list[CTkToolTip]:
+  """Attach wrapped hover help and retain its lifetime with each widget."""
+  tips = []
+  for widget in widgets:
+    tip = CTkToolTip(widget, message=text, delay=0.4, wraplength=420, justify="left")
+    widget._cure_tooltip = tip
+    tips.append(tip)
+  return tips
 
 
 # =============================================================================
@@ -1157,7 +1168,8 @@ class App(ctk.CTk):
       value=(self.recent_input_dirs[0] if getattr(self, "recent_input_dirs", None) else "")
     )
 
-    ctk.CTkLabel(self.top, text="Input Directory:").grid(
+    input_label = ctk.CTkLabel(self.top, text="Input Directory:")
+    input_label.grid(
       row=0,
       column=0,
       sticky="w",
@@ -1174,25 +1186,38 @@ class App(ctk.CTk):
       state="normal",
     )
     self.input_entry.grid(row=0, column=1, sticky="ew", padx=8, pady=8)
+    tooltip(input_label, self.input_entry, text="Folder containing the PNG or SVG layers for one icon project. "
+            "Choose a recent folder or type a path, then click Load/Refresh. The project settings are stored "
+            "in icon-builder.json inside this folder.")
 
     self.btn_browse_input = ctk.CTkButton(self.top, text="Browse...", command=self.on_browse_input_dir, width=110)
     self.btn_browse_input.grid(row=0, column=2, padx=8, pady=8)
+    tooltip(self.btn_browse_input, text="Choose the input folder that holds this icon project's layers and "
+            "icon-builder.json. Selecting a folder does not build an icon.")
 
     self.btn_load = ctk.CTkButton(self.top, text="Load/Refresh", command=self.on_load_input_dir, width=120)
     self.btn_load.grid(row=0, column=3, padx=8, pady=8)
+    tooltip(self.btn_load, text="Load the selected folder's icon-builder.json, or import its legacy "
+            "png-to-ico.json. If neither exists, discover layers from filenames with width x height tokens "
+            "and create a project config.")
 
     self.btn_rescan = ctk.CTkButton(self.top, text="Rescan Layers", command=self.on_rescan_layers, width=130)
     self.btn_rescan.grid(row=0, column=4, padx=8, pady=8)
+    tooltip(self.btn_rescan, text="Search the current input folder again for PNG and SVG files named with "
+            "a size token such as 256x256. Review the resulting layer list before building.")
 
     # Keep the "clear history" functionality, just move it onto the top row.
     self.btn_clear_recent = ctk.CTkButton(self.top, text="Clear History", command=self.on_clear_recent, width=120)
     self.btn_clear_recent.grid(row=0, column=5, padx=8, pady=8)
+    tooltip(self.btn_clear_recent, text="Remove saved recent input folders from this app's history. "
+            "This does not delete folders, project configs, or image files.")
 
     # -------------------------------------------------------------------------
     # Standard Target Sizes (App default + Project override)
     # -------------------------------------------------------------------------
 
-    ctk.CTkLabel(self.top, text="Target Sizes:").grid(
+    sizes_label = ctk.CTkLabel(self.top, text="Target Sizes:")
+    sizes_label.grid(
       row=1,
       column=0,
       sticky="w",
@@ -1202,6 +1227,9 @@ class App(ctk.CTk):
 
     self.target_sizes_entry = ctk.CTkEntry(self.top, textvariable=self.target_sizes_var)
     self.target_sizes_entry.grid(row=1, column=1, sticky="ew", padx=8, pady=(0, 8))
+    tooltip(sizes_label, self.target_sizes_entry, text="Comma-separated standard square icon sizes in pixels, "
+            "such as 16, 32, 64, 256. Use for Project stores them with the selected icon project; "
+            "Set App Default changes the sizes offered to future projects. Existing layer sizes remain editable.")
 
     self.btn_set_project_sizes = ctk.CTkButton(
       self.top,
@@ -1210,6 +1238,8 @@ class App(ctk.CTk):
       width=130,
     )
     self.btn_set_project_sizes.grid(row=1, column=2, padx=8, pady=(0, 8))
+    tooltip(self.btn_set_project_sizes, text="Save the Target Sizes list as an override for this input folder. "
+            "It sets the project's maximum allowed layer size and is kept in icon-builder.json.")
 
     self.btn_set_app_sizes = ctk.CTkButton(
       self.top,
@@ -1218,6 +1248,8 @@ class App(ctk.CTk):
       width=140,
     )
     self.btn_set_app_sizes.grid(row=1, column=3, padx=8, pady=(0, 8))
+    tooltip(self.btn_set_app_sizes, text="Make the Target Sizes list the app-wide default for new projects. "
+            "This changes local app settings; it does not change other projects' saved overrides.")
 
     self.btn_clear_project_sizes = ctk.CTkButton(
       self.top,
@@ -1226,6 +1258,8 @@ class App(ctk.CTk):
       width=170,
     )
     self.btn_clear_project_sizes.grid(row=1, column=4, padx=8, pady=(0, 8), columnspan=2, sticky="w")
+    tooltip(self.btn_clear_project_sizes, text="Remove this project's Target Sizes override and return to "
+            "the app-wide default. Existing source files and layer rows are preserved.")
 
     self.top.grid_columnconfigure(1, weight=1)
 
@@ -1236,13 +1270,18 @@ class App(ctk.CTk):
     header = ctk.CTkFrame(self.mid)
     header.pack(fill="x", padx=8, pady=(8, 6))
 
-    ctk.CTkLabel(
+    layers_label = ctk.CTkLabel(
       header,
       text="Layers (largest to smallest) - each layer has a source image + a target size (W,H)",
-    ).pack(side="left", padx=8)
+    )
+    layers_label.pack(side="left", padx=8)
+    tooltip(layers_label, text="Each enabled layer renders a selected PNG or SVG at its target width and height "
+            "for the ICO file. Layers are ordered from largest to smallest. You can adjust a layer or add one manually.")
 
     self.btn_add_layer = ctk.CTkButton(header, text="Add Layer...", command=self.on_add_layer, width=120)
     self.btn_add_layer.pack(side="right", padx=8)
+    tooltip(self.btn_add_layer, text="Add another icon layer from a PNG or SVG file. The selected file does not need "
+            "a size token in its filename; set its target width and height in the new row.")
 
     self.layer_scroll = ctk.CTkScrollableFrame(self.mid)
     self.layer_scroll.pack(fill="both", expand=True, padx=8, pady=(0, 8))
@@ -1253,14 +1292,22 @@ class App(ctk.CTk):
     self.bottom = ctk.CTkFrame(self)
     self.bottom.pack(fill="x", padx=12, pady=(6, 12))
 
-    ctk.CTkLabel(self.bottom, text="Output Directory:").grid(row=0, column=0, sticky="w", padx=8, pady=8)
+    output_label = ctk.CTkLabel(self.bottom, text="Output Directory:")
+    output_label.grid(row=0, column=0, sticky="w", padx=8, pady=8)
     self.out_dir_entry = ctk.CTkEntry(self.bottom, textvariable=self.output_dir_var)
     self.out_dir_entry.grid(row=0, column=1, sticky="ew", padx=8, pady=8)
-    ctk.CTkButton(self.bottom, text="Browse...", command=self.on_browse_output_dir, width=110).grid(row=0, column=2, padx=8, pady=8)
+    tooltip(output_label, self.out_dir_entry, text="Folder where the finished ICO file is written. "
+            "It may be different from the input folder. Build uses the ICO Name below for the filename.")
+    output_browse = ctk.CTkButton(self.bottom, text="Browse...", command=self.on_browse_output_dir, width=110)
+    output_browse.grid(row=0, column=2, padx=8, pady=8)
+    tooltip(output_browse, text="Choose the folder for the finished ICO file. This does not move source layers.")
 
-    ctk.CTkLabel(self.bottom, text="ICO Name:").grid(row=1, column=0, sticky="w", padx=8, pady=8)
+    ico_name_label = ctk.CTkLabel(self.bottom, text="ICO Name:")
+    ico_name_label.grid(row=1, column=0, sticky="w", padx=8, pady=8)
     self.out_name_entry = ctk.CTkEntry(self.bottom, textvariable=self.output_name_var)
     self.out_name_entry.grid(row=1, column=1, sticky="ew", padx=8, pady=8)
+    tooltip(ico_name_label, self.out_name_entry, text="Filename for the multi-size Windows icon, such as icon.ico. "
+            "All enabled layers are combined into this one ICO file when you click Build.")
 
     self.png_output_check = ctk.CTkCheckBox(
       self.bottom,
@@ -1269,21 +1316,36 @@ class App(ctk.CTk):
       command=self.persist_config_if_possible,
     )
     self.png_output_check.grid(row=2, column=0, sticky="w", padx=8, pady=8)
+    tooltip(self.png_output_check, text="Also render a standalone PNG from the same selected layers when building "
+            "the ICO. Turn this off when you only need the ICO file.")
 
     self.png_dir_entry = ctk.CTkEntry(self.bottom, textvariable=self.png_output_dir_var)
     self.png_dir_entry.grid(row=2, column=1, sticky="ew", padx=8, pady=8)
-    ctk.CTkButton(self.bottom, text="Browse...", command=self.on_browse_png_output_dir, width=110).grid(row=2, column=2, padx=8, pady=8)
+    tooltip(self.png_dir_entry, text="Folder for the optional standalone PNG. This is used only when Build PNG "
+            "is checked; it can differ from the ICO output folder.")
+    png_browse = ctk.CTkButton(self.bottom, text="Browse...", command=self.on_browse_png_output_dir, width=110)
+    png_browse.grid(row=2, column=2, padx=8, pady=8)
+    tooltip(png_browse, text="Choose the folder for the optional PNG output. Build PNG must be checked "
+            "for this path to be used.")
 
-    ctk.CTkLabel(self.bottom, text="PNG Name:").grid(row=3, column=0, sticky="w", padx=8, pady=8)
+    png_name_label = ctk.CTkLabel(self.bottom, text="PNG Name:")
+    png_name_label.grid(row=3, column=0, sticky="w", padx=8, pady=8)
     self.png_name_entry = ctk.CTkEntry(self.bottom, textvariable=self.png_output_name_var)
     self.png_name_entry.grid(row=3, column=1, sticky="ew", padx=8, pady=8)
+    tooltip(png_name_label, self.png_name_entry, text="Filename for the optional standalone PNG, such as icon.png. "
+            "It is written only when Build PNG is checked.")
 
-    ctk.CTkLabel(self.bottom, text="PNG Size:").grid(row=4, column=0, sticky="w", padx=8, pady=8)
+    png_size_label = ctk.CTkLabel(self.bottom, text="PNG Size:")
+    png_size_label.grid(row=4, column=0, sticky="w", padx=8, pady=8)
     self.png_size_entry = ctk.CTkEntry(self.bottom, textvariable=self.png_output_size_var)
     self.png_size_entry.grid(row=4, column=1, sticky="ew", padx=8, pady=8)
+    tooltip(png_size_label, self.png_size_entry, text="Side length in pixels for the optional square PNG. "
+            "For example, 256 creates a 256×256 image. This does not change ICO layer sizes.")
 
     self.btn_build = ctk.CTkButton(self.bottom, text="Build", command=self.on_build_ico, width=140)
     self.btn_build.grid(row=4, column=2, padx=8, pady=8)
+    tooltip(self.btn_build, text="Validate enabled layers, render them at their target sizes, and write the ICO. "
+            "If Build PNG is checked, also write the standalone PNG using the settings above.")
 
     self.bottom.grid_columnconfigure(1, weight=1)
 
@@ -1441,6 +1503,11 @@ class App(ctk.CTk):
 
   def clear_layer_rows(self) -> None:
     for row in self._layer_rows:
+      for tip in row.get("tooltips", []):
+        try:
+          tip.destroy()
+        except Exception:
+          pass
       try:
         row["frame"].destroy()
       except Exception:
@@ -1487,6 +1554,7 @@ class App(ctk.CTk):
     for idx, it in enumerate(self.layers):
       frame = ctk.CTkFrame(self.layer_scroll)
       frame.pack(fill="x", padx=6, pady=4)
+      row_tooltips = []
 
       enabled_var = tk.BooleanVar(value=bool(it.enabled))
 
@@ -1498,18 +1566,24 @@ class App(ctk.CTk):
 
       chk = ctk.CTkCheckBox(frame, text="", variable=enabled_var, command=_make_on_toggle(idx, enabled_var), width=24)
       chk.grid(row=0, column=0, padx=(8, 4), pady=8)
+      row_tooltips += tooltip(chk, text="Include this image layer in the ICO and optional PNG. "
+                              "Disabled layers stay in the project config but are not rendered when you click Build.")
 
       # Target size editors
       tw, th = it.target_size
       w_var = tk.StringVar(value=str(tw))
       h_var = tk.StringVar(value=str(th))
 
-      ctk.CTkLabel(frame, text="Target:", width=60).grid(row=0, column=1, padx=(6, 2), pady=8, sticky="w")
+      target_label = ctk.CTkLabel(frame, text="Target:", width=60)
+      target_label.grid(row=0, column=1, padx=(6, 2), pady=8, sticky="w")
       ent_w = ctk.CTkEntry(frame, width=70, textvariable=w_var)
       ent_w.grid(row=0, column=2, padx=(2, 2), pady=8, sticky="w")
       ctk.CTkLabel(frame, text="x", width=14).grid(row=0, column=3, padx=(2, 2), pady=8, sticky="w")
       ent_h = ctk.CTkEntry(frame, width=70, textvariable=h_var)
       ent_h.grid(row=0, column=4, padx=(2, 10), pady=8, sticky="w")
+      row_tooltips += tooltip(target_label, ent_w, ent_h, text="Width and height in pixels for this layer "
+                              "inside the ICO. The source image is rendered to this target size. Press Enter "
+                              "or leave a field to save; sizes above the active Target Sizes maximum are refused.")
 
       def _make_on_size_commit(i: int, wv: tk.StringVar, hv: tk.StringVar):
         def _commit(_evt=None):
@@ -1539,6 +1613,9 @@ class App(ctk.CTk):
 
       lbl = ctk.CTkLabel(frame, text=path_text, anchor="w")
       lbl.grid(row=0, column=5, padx=6, pady=8, sticky="ew")
+      row_tooltips += tooltip(lbl, text="Selected source image for this layer. The number in parentheses is "
+                              "its actual source dimensions; MISSING means the file could not be found. "
+                              "Use File... to choose another PNG or SVG.")
 
       def _make_on_pick_file(i: int):
         def _on_pick():
@@ -1552,9 +1629,13 @@ class App(ctk.CTk):
 
       btn_pick = ctk.CTkButton(frame, text="File...", command=_make_on_pick_file(idx), width=90)
       btn_pick.grid(row=0, column=6, padx=6, pady=8)
+      row_tooltips += tooltip(btn_pick, text="Replace this layer's source with another PNG or SVG file. "
+                              "The target width and height can be changed separately in this row.")
 
       btn_remove = ctk.CTkButton(frame, text="Remove", command=_make_on_remove(idx), width=90)
       btn_remove.grid(row=0, column=7, padx=(6, 8), pady=8)
+      row_tooltips += tooltip(btn_remove, text="Remove this layer from the project list and save the updated "
+                              "project config. The source image file itself is not deleted.")
 
       frame.grid_columnconfigure(5, weight=1)
 
@@ -1563,6 +1644,7 @@ class App(ctk.CTk):
         "enabled_var": enabled_var,
         "w_var": w_var,
         "h_var": h_var,
+        "tooltips": row_tooltips,
       })
 
   # ---------------------------------------------------------------------------
