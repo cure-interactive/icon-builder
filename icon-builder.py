@@ -82,9 +82,9 @@ def tooltip(*widgets, text: str) -> list[CTkToolTip]:
 
 from datetime import datetime
 
-# Log files go to: <script_root>/_logs/icon_builder_YYYY-MM-DD_HH-MM-SS.log
+# Log files go to: <script_root>/__log/icon_builder_YYYY-MM-DD_HH-MM-SS.log
 SCRIPT_ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
-LOG_DIR = os.path.join(SCRIPT_ROOT_DIR, "_logs")
+LOG_DIR = os.path.join(SCRIPT_ROOT_DIR, "__log")
 os.makedirs(LOG_DIR, exist_ok=True)
 
 LOG_TS = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
